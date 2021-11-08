@@ -14,14 +14,14 @@
     function b(a) { return a ? (a ^ Math.random() * 16 >> a / 4).toString(16) : ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, b) }
     var imgFile = null
 
-    $('#img_src').attr('src', '');
-    $('#img_dst').attr('src', '');
+    $('#imageDocto').attr('src', '');
+    $('#imageEdge').attr('src', '');
 
     window.onload = function () {
       $('#fileSelectorImage').change(function (event) {
         $('#result').text("...loading...");
-        $('#img_src').attr('src', '');
-        $('#img_dst').attr('src', '');
+        $('#imageDocto').attr('src', '');
+        $('#imageEdge').attr('src', '');
         for (const file of event.target.files) {
           console.log(file.name);
           var reader = new FileReader();
@@ -44,7 +44,7 @@
             var imgResult = event.target.result;
             var base64 = imgResult.replace(/^data:image\/(png|jpg|jpeg|tiff|bmp);base64,/, "");
             imgFile = base64
-            $('#img_src').attr('src', imgResult);
+            $('#imageDocto').attr('src', imgResult);
           };
         }
       });
@@ -67,7 +67,6 @@
         });
         // console.log(theJson);
 
-        $('#img_dst').attr('src', '');
         $.ajax({
           url: '/process',
           type: 'POST',
@@ -78,7 +77,8 @@
           processData: false,
           success: function (response) {
             $('#result').text(JSON.stringify(response, null, 2));
-            $('#img_dst').attr('src', response.dst ? "data:image/jpg;base64," + response.dst : '');
+            $('#imageDocto').attr('src', response.dst ? "data:image/jpg;base64," + response.dst : '');
+            $('#imageEdge').attr('src', response.edge ? "data:image/jpg;base64," + response.edge : '');
             console.log(response);
           },
           failure: function (response) {
@@ -102,9 +102,9 @@
   <hr />
   <pre><span id="result"></span></pre>
   <hr />
-  <img id="img_dst" /><br />
+  <img id="imageDocto" /><br />
   <hr />
-  <img id="img_src" /><br />
+  <img id="imageEdge" /><br />
   <hr />
   <script>
     // tell the embed parent frame the height of the content

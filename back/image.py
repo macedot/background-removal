@@ -1,71 +1,68 @@
-import skimage.io
-import skimage.transform
-from skimage.util import img_as_ubyte
-from skimage.util import img_as_float
-from PIL import Image
-import tensorflow as tf
-import numpy as np
+import io
 import base64
-import cv2
-from hashlib import sha256
-from io import BytesIO
+import logging
+import numpy as np
+import cv2 as cv2
+from PIL import Image
 from transform import rectify, four_point_transform
 
-
-model = tf.keras.models.load_model('../4unet-cheque')
+import detect
 
 
 def mm2pix(x, d):
     return (x * d) / 25.4
 
 
-UNET_IMAGE_WIDTH = 256
-UNET_IMAGE_HEIGHT = UNET_IMAGE_WIDTH
-UNET_IMAGE_SHAPE = (UNET_IMAGE_HEIGHT, UNET_IMAGE_WIDTH)
 CHEQUE_WIDTH_MM = 176
 CHEQUE_HEIGHT_MM = 76
 CHEQUE_IMAGE_DPI = 200
 CHEQUE_DIM_PIX = np.array([
     mm2pix(CHEQUE_WIDTH_MM, CHEQUE_IMAGE_DPI),
-    mm2pix(CHEQUE_HEIGHT_MM, CHEQUE_IMAGE_DPI)
+    mm2pix(CHEQUE_HEIGHT_MM, CHEQUE_IMAGE_DPI),
+], dtype=np.int32)
+
+CHEQUE_DIM_PIX_VERT = np.array([
+    mm2pix(CHEQUE_HEIGHT_MM, CHEQUE_IMAGE_DPI),
+    mm2pix(CHEQUE_WIDTH_MM, CHEQUE_IMAGE_DPI),
 ], dtype=np.int32)
 
 
-def load_image_base64(base64_str):
+def load_b64image(base64_str):
     if isinstance(base64_str, bytes):
         base64_str = base64_str.decode("utf-8")
     imgdata = base64.b64decode(base64_str)
-    img = skimage.io.imread(imgdata, plugin='imageio', as_gray=True)
-    h, w = img.shape
-    if h > w:
-        img = skimage.transform.rotate(img, 90, resize=True)
-    return img
+    return io.BytesIO(imgdata)
 
 
-def convert_image_to_model(img):
-    digest = sha256(img).hexdigest()
-    img = skimage.transform.resize(img, UNET_IMAGE_SHAPE, anti_aliasing=False)
-    #skimage.io.imsave(f'{digest}.jpg', img)
-    img = np.reshape(img, (1,) + UNET_IMAGE_SHAPE + (1,))
-    return img
-
-
-def encode_image_base64(PIL_image) -> str:
-    with BytesIO() as output_bytes:
-        if PIL_image.mode != 'RGB':
-            PIL_image = PIL_image.convert('RGB')
+def encode_image_base64(image_bytes: io.BytesIO) -> str:
+    with io.BytesIO() as output_bytes:
+        PIL_image = Image.open(image_bytes)
+        if PIL_image.mode != 'L':
+            PIL_image = PIL_image.convert('L')
         PIL_image.save(output_bytes, 'JPEG')
         bytes_data = output_bytes.getvalue()
     base64_str = str(base64.b64encode(bytes_data), 'utf-8')
     return base64_str
 
 
-def run_model(img_src):
-    img_input = convert_image_to_model(img_src)
-    results = model.predict([img_input], 1, verbose=1)
-    img = results[0][:, :, 0]
-    img_prediction = Image.fromarray(img_as_ubyte(img))
-    return img_prediction
+def image_to_bytes(img, img_format: str = 'JPEG') -> io.BytesIO:
+    buffer = io.BytesIO()
+    img.save(buffer, img_format)
+    buffer.seek(0)
+    return buffer
+
+
+def modelPredict(net, img):
+    output = detect.predict(net, np.array(img))
+    output = output.resize((img.size), resample=Image.BILINEAR)  # remove resample
+    output = output.convert("L")
+    return output
+
+
+def imageCompose(img_base, img_mask):
+    empty_img = Image.new("L", (img_base.size), 0)
+    new_img = Image.composite(img_base.convert('L'), empty_img, img_mask)
+    return new_img
 
 
 def auto_canny(image, sigma=0.33, apertureSize=7):
@@ -82,23 +79,49 @@ def detect_edge(img):
     threshold = auto_canny(threshold)
     contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
+    imgLocal = im_np.copy()
     target = None
-    imgLocal = img.copy()
-    maxArea = 0.10 * UNET_IMAGE_WIDTH * UNET_IMAGE_HEIGHT
+    maxArea = 0.10 * im_np.shape[0] * im_np.shape[1]
     for c in contours:
         hull = cv2.convexHull(c)
         peri = cv2.arcLength(hull, True)
         approx = cv2.approxPolyDP(hull, 0.01 * peri, True)
         if len(approx) == 4:
             area = cv2.contourArea(approx)
+            approx = rectify(approx)
             if area > maxArea:
+                target = approx
                 maxArea = area
-                target = rectify(approx)
-                imgLocal = im_np.copy()
                 cv2.fillConvexPoly(imgLocal, target, (255, 255, 255), cv2.LINE_AA)
                 break
-    image = img_as_ubyte(imgLocal)
-    return image, target  # , maxArea
+            else:
+                cv2.fillConvexPoly(imgLocal, approx, (255, 255, 255), cv2.LINE_AA)
+    return imgLocal, target
+
+
+def remove_shadown(img):
+    rgb_planes = cv2.split(img)
+    result_norm_planes = []
+    for plane in rgb_planes:
+        dilated_img = cv2.dilate(plane, np.ones((7, 7), np.uint8))
+        bg_img = cv2.medianBlur(dilated_img, 21)
+        diff_img = 255 - cv2.absdiff(plane, bg_img)
+        norm_img = cv2.normalize(diff_img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+        result_norm_planes.append(norm_img)
+    result_norm = cv2.merge(result_norm_planes)
+    return result_norm
+
+
+def image_auto_adjustment(img):
+    alow = img.min()
+    ahigh = img.max()
+    amax = 255
+    amin = 0
+    # calculate alpha, beta
+    alpha = ((amax - amin) / (ahigh - alow))
+    beta = amin - alow * alpha
+    # perform the operation g(x,y)= α * f(x,y)+ β
+    return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
 
 
 def warp_image(img_src, img_edge, target):
@@ -109,16 +132,18 @@ def warp_image(img_src, img_edge, target):
     for i, elem in enumerate(target):
         roi[i] = [a * b for a, b in zip(elem, adj)]
     img_dst = four_point_transform(img_src, roi, CHEQUE_DIM_PIX)
-    return img_dst
+    img_dst = image_auto_adjustment(img_dst)
+    return Image.fromarray(img_dst)
 
 
-def process_image(b64src: str):
-    img_src = load_image_base64(b64src)
-    img_prediction = run_model(img_src)
-    img_edge, target = detect_edge(img_prediction)
+def process_image(net, byte_data: io.BytesIO):
+    img = Image.open(byte_data)
+    img_mask = modelPredict(net, img)
+    img_edge, target = detect_edge(img_mask)
     if target is None:
-        return None
-    img_dst = warp_image(img_src, img_edge, target)
-    dst_pil = Image.fromarray(img_as_ubyte(img_dst))
-    b64dst = encode_image_base64(dst_pil)
-    return b64dst
+        #raise Exception('No region found')
+        img_dst = img_mask
+    else:
+        img_dst = warp_image(np.asarray(img), np.asarray(img_edge), target)
+
+    return img_dst, Image.fromarray(img_edge)
