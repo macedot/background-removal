@@ -28,23 +28,25 @@
           reader.readAsDataURL(file);
           reader.onerror = function (event) {
             console.log('reader.onerror');
+            $('#result').text("...ERROR...");
           };
           reader.onabort = function (event) {
             console.log('reader.onabort');
+            $('#result').text("...ABORTED...");
           };
           reader.onload = function (event) {
             console.log('reader.onload');
+            $('#result').text("...LOADING...");
           };
           reader.onloadend = function (event) {
             console.log('reader.onloadend');
+            $('#result').text("...READY...");
             var imgResult = event.target.result;
             var base64 = imgResult.replace(/^data:image\/(png|jpg|jpeg|tiff|bmp);base64,/, "");
             imgFile = base64
             $('#img_src').attr('src', imgResult);
           };
         }
-        $('#result').text("...DONE...");
-        console.log('DONE');
       });
 
       document.getElementById('sendFile').onclick = function () {
@@ -97,11 +99,11 @@
   <input type="checkbox" id="isLite" /> LITE? <br /><br />
   <input type="button" id="sendFile" value="Send!" />
   <hr />
+  <pre><span id="result"></span></pre>
+  <hr />
   <img id="img_dst" /><br />
   <hr />
   <img id="img_src" /><br />
-  <hr />
-  <pre><span id="result"></span></pre>
   <hr />
   <script>
     // tell the embed parent frame the height of the content
