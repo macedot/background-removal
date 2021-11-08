@@ -57,6 +57,9 @@
 
         $('#result').text("...sending...");
 
+        var isCheque = document.getElementById("isCheque").checked;
+        console.log('isCheque = ' + isCheque);
+
         var useLite = document.getElementById("useLite").checked;
         console.log('useLite = ' + useLite);
 
@@ -71,8 +74,11 @@
           debug: isDebug
         });
 
+
+        var uri_post = isCheque ? '/cheque/extract' : '/image/extract';
+
         $.ajax({
-          url: '/process',
+          url: uri_post,
           type: 'POST',
           data: theJson,
           cache: false,
@@ -101,6 +107,7 @@
 
 <body>
   <input type="file" name="fileSelectorImage" id="fileSelectorImage" label="Image File" /><br />
+  <input type="checkbox" id="isCheque" checked /> CHEQUE? <br />
   <input type="checkbox" id="useLite" /> LITE? <br />
   <input type="checkbox" id="isDebug" /> DEBUG? <br />
   <input type="button" id="sendFile" value="Send!" />

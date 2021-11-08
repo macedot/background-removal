@@ -55,13 +55,14 @@ def image_to_bytes(img, img_format: str = 'JPEG') -> io.BytesIO:
 def modelPredict(net, img):
     output = detect.predict(net, np.array(img))
     output = output.resize((img.size), resample=Image.BILINEAR)
-    output = output.convert("L")
     return output
 
 
-def imageCompose(img_base, img_mask):
-    empty_img = Image.new("L", (img_base.size), 0)
-    new_img = Image.composite(img_base.convert('L'), empty_img, img_mask)
+def imageCompose(img_base, img_mask, img_type: str = 'RGB'):
+    empty_img = Image.new(img_type, (img_base.size), 0)
+    new_img = Image.composite(img_base.convert(img_type),
+                              empty_img,
+                              img_mask)
     return new_img
 
 
@@ -136,10 +137,18 @@ def warp_image(img_src, img_edge, target):
     return Image.fromarray(img_dst)
 
 
-def process_image(net, byte_data: io.BytesIO):
+def extract_image(net, byte_data: io.BytesIO):
+    img = Image.open(byte_data)
+    img_mask = modelPredict(net, img)
+    img_final = imageCompose(img, img_mask)
+    return img_final
+
+
+def extract_cheque(net, byte_data: io.BytesIO):
     msg = None
     img = Image.open(byte_data)
     img_mask = modelPredict(net, img)
+    img_mask = img_mask.convert("L")
     img_edge, target = detect_edge(img_mask)
     if target is None:
         img_dst = img_mask

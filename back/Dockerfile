@@ -1,5 +1,6 @@
 FROM python:3.7-slim-stretch
 
+ENV HOST 0.0.0.0
 ENV PORT 8080
 RUN apt-get -y update && apt-get -y install build-essential
 
@@ -10,4 +11,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 app:app
+CMD exec gunicorn --bind $HOST:$PORT --workers 1 --threads 8 app:app
