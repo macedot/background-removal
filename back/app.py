@@ -29,39 +29,40 @@ def uploadImage():
 
 
 def processJson(json_content):
-    if 'image' not in json_content:
-        return jsonify({'error': 'missing image file'}), 400
-
-    b64imgSrc = json_content['image']
-    if len(b64imgSrc) == 0:
-        return jsonify({'error': 'empty image'}), 400
-
-    isLite = json_content.get('isLite', False)
-    theNet = u2netLite if isLite else u2net
-    data = load_b64image(b64imgSrc)
-
     try:
+        if 'image' not in json_content:
+            return jsonify({'error': 'missing image file'}), 400
+
+        b64imgSrc = json_content['image']
+        if len(b64imgSrc) == 0:
+            return jsonify({'error': 'empty image'}), 400
+
+        debug = json_content.get('debug', False)
+        useLite = json_content.get('useLite', False)
+        theNet = u2netLite if useLite else u2net
+
+        data = load_b64image(b64imgSrc)
         start = time.time()
         dst_image, edge_image = process_image(theNet, data)
         elapsed = time.time() - start
+
+        dst_buffer = image_to_bytes(dst_image)
+        b64imgDst = encode_image_base64(dst_buffer)
+        response = {
+            'elapsed': elapsed,
+            'result': b64imgDst,
+        }
+        if debug:
+            edge_buffer = image_to_bytes(edge_image)
+            b64imgEdge = encode_image_base64(edge_buffer)
+            response['edge'] = b64imgEdge
+        if useLite:
+            response['useLite'] = useLite
+
+        return jsonify(response)
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-    dst_buffer = image_to_bytes(dst_image)
-    b64imgDst = encode_image_base64(dst_buffer)
-
-    edge_buffer = image_to_bytes(edge_image)
-    b64imgEdge = encode_image_base64(edge_buffer)
-
-    response = {
-        'elapsed': elapsed,
-        'dst': b64imgDst,
-        'edge': b64imgEdge,
-    }
-    if isLite:
-        response['isLite'] = isLite
-
-    return jsonify(response)
 
 
 @app.route('/process', methods=['POST'])

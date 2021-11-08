@@ -56,14 +56,14 @@
         }
         $('#result').text("...sending...");
 
-        var isLite = document.getElementById("isLite").checked;
-        console.log('isLite = ' + isLite);
+        var useLite = document.getElementById("useLite").checked;
+        console.log('useLite = ' + useLite);
 
         var theUUID = b();
         var theJson = JSON.stringify({
           uuid: theUUID,
           image: imgFile,
-          isLite: isLite,
+          useLite: useLite,
         });
         // console.log(theJson);
 
@@ -77,7 +77,7 @@
           processData: false,
           success: function (response) {
             $('#result').text(JSON.stringify(response, null, 2));
-            $('#imageDocto').attr('src', response.dst ? "data:image/jpg;base64," + response.dst : '');
+            $('#imageDocto').attr('src', response.result ? "data:image/jpg;base64," + response.result : '');
             $('#imageEdge').attr('src', response.edge ? "data:image/jpg;base64," + response.edge : '');
             console.log(response);
           },
@@ -97,13 +97,12 @@
 
 <body>
   <input type="file" name="fileSelectorImage" id="fileSelectorImage" label="Image File" /><br />
-  <input type="checkbox" id="isLite" /> LITE? <br /><br />
+  <input type="checkbox" id="useLite" /> LITE? <br /><br />
   <input type="button" id="sendFile" value="Send!" />
   <hr />
   <pre><span id="result"></span></pre>
   <hr />
   <img id="imageDocto" /><br />
-  <hr />
   <img id="imageEdge" /><br />
   <hr />
   <script>
