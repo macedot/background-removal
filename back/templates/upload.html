@@ -54,18 +54,22 @@
           $('#result').text("...missing json file...");
           return;
         }
+
         $('#result').text("...sending...");
 
         var useLite = document.getElementById("useLite").checked;
         console.log('useLite = ' + useLite);
+
+        var isDebug = document.getElementById("isDebug").checked;
+        console.log('isDebug = ' + isDebug);
 
         var theUUID = b();
         var theJson = JSON.stringify({
           uuid: theUUID,
           image: imgFile,
           useLite: useLite,
+          debug: isDebug
         });
-        // console.log(theJson);
 
         $.ajax({
           url: '/process',
@@ -97,7 +101,8 @@
 
 <body>
   <input type="file" name="fileSelectorImage" id="fileSelectorImage" label="Image File" /><br />
-  <input type="checkbox" id="useLite" /> LITE? <br /><br />
+  <input type="checkbox" id="useLite" /> LITE? <br />
+  <input type="checkbox" id="isDebug" /> DEBUG? <br />
   <input type="button" id="sendFile" value="Send!" />
   <hr />
   <pre><span id="result"></span></pre>
