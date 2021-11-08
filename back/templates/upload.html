@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Image Comparison</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <style id="compiled-css" type="text/css"></style>
+  <script type="text/javascript">//<![CDATA[
+    function b(a) { return a ? (a ^ Math.random() * 16 >> a / 4).toString(16) : ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, b) }
+    var imgFile = null
+    var isLite = false;
+
+    $('#img_src').attr('src', '');
+    $('#img_dst').attr('src', '');
+
+    window.onload = function () {
+      $('#fileSelectorImage').change(function (event) {
+        isLite = document.getElementById("isLite").checked;
+        $('#result').text("...loading...");
+        $('#img_src').attr('src', '');
+        $('#img_dst').attr('src', '');
+        for (const file of event.target.files) {
+          console.log(file.name);
+          var reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onerror = function (event) {
+            console.log('reader.onerror');
+          };
+          reader.onabort = function (event) {
+            console.log('reader.onabort');
+          };
+          reader.onload = function (event) {
+            console.log('reader.onload');
+          };
+          reader.onloadend = function (event) {
+            console.log('reader.onloadend');
+            // imgFile = event.target.result;
+            var imgResult = event.target.result;
+            var base64 = imgResult.replace(/^data:image\/(png|jpg|jpeg|tiff|bmp);base64,/, "");
+            imgFile = base64
+            $('#img_src').attr('src', imgResult);
+          };
+        }
+        $('#result').text("...DONE...");
+        console.log('DONE');
+      });
+
+      document.getElementById('sendFile').onclick = function () {
+        if (imgFile == null) {
+          $('#result').text("...missing json file...");
+          return;
+        }
+        $('#result').text("...sending...");
+
+        var theUUID = b();
+        var theJson = JSON.stringify({
+          uuid: theUUID,
+          image: imgFile,
+        });
+        // console.log(theJson);
+
+        $('#img_dst').attr('src', '');
+        $.ajax({
+          url: isLite ? '/process_lite' : '/process',
+          type: 'POST',
+          data: theJson,
+          cache: false,
+          dataType: "json",
+          contentType: "application/json; charset=utf-8",
+          processData: false,
+          success: function (response) {
+            $('#result').text(JSON.stringify(response, null, 2));
+            $('#img_dst').attr('src', response.dst ? "data:image/jpg;base64," + response.dst : '');
+            console.log(response);
+          },
+          failure: function (response) {
+            $('#result').text(JSON.stringify(response, null, 2));
+            console.log(response);
+          },
+          error: function (jqXhr, textStatus, errorThrown) {
+            $('#result').text(JSON.stringify(jqXhr.responseText, null, 2));
+            console.log(errorThrown + ":" + jqXhr.responseText);
+          },
+        });
+      }
+    }
+//]]></script>
+</head>
+
+<body>
+  <input type="file" name="fileSelectorImage" id="fileSelectorImage" label="Image File" /><br />
+  <input type="checkbox" id="isLite" /> LITE? <br /><br />
+  <input type="button" id="sendFile" value="Send!" />
+  <hr />
+  <img id="img_dst" /><br />
+  <hr />
+  <img id="img_src" /><br />
+  <hr />
+  <pre><span id="result"></span></pre>
+  <hr />
+  <script>
+    // tell the embed parent frame the height of the content
+    if (window.parent && window.parent.parent) {
+      window.parent.parent.postMessage(["resultsFrame", {
+        height: document.body.getBoundingClientRect().height,
+        slug: ""
+      }], "*")
+    }
+    // always overwrite window.name, in case users try to set it manually
+    window.name = "result"
+  </script>
+</body>
+
+</html>
