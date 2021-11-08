@@ -47,7 +47,6 @@ def norm_pred(d):
     ma = torch.max(d)
     mi = torch.min(d)
     dn = (d - mi) / (ma - mi)
-
     return dn
 
 
@@ -68,16 +67,12 @@ def preprocess(image):
 
     transform = transforms.Compose([utils.RescaleT(320), utils.ToTensorLab(flag=0)])
     sample = transform({"imidx": np.array([0]), "image": image, "label": label})
-
     return sample
 
 
 def predict(net, item):
-
     sample = preprocess(item)
-
     with torch.no_grad():
-
         if torch.cuda.is_available():
             inputs_test = torch.cuda.FloatTensor(sample["image"].unsqueeze(0).float())
         else:

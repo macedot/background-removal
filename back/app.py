@@ -28,14 +28,18 @@ def uploadImage():
     return render_template('upload.html')
 
 
+def buildJsonErro(error_msg):
+    return jsonify({'error': error_msg})
+
+
 def processJson(json_content):
     try:
         if 'image' not in json_content:
-            return jsonify({'error': 'missing image file'}), 400
+            return buildJsonErro('missing image file'), 400
 
         b64imgSrc = json_content['image']
         if len(b64imgSrc) == 0:
-            return jsonify({'error': 'empty image'}), 400
+            return buildJsonErro('input image is empty'), 400
 
         debug = json_content.get('debug', False)
         useLite = json_content.get('useLite', False)
@@ -43,7 +47,7 @@ def processJson(json_content):
 
         data = load_b64image(b64imgSrc)
         start = time.time()
-        dst_image, edge_image = process_image(theNet, data)
+        dst_image, edge_image, msg = process_image(theNet, data)
         elapsed = time.time() - start
 
         dst_buffer = image_to_bytes(dst_image)
@@ -52,6 +56,8 @@ def processJson(json_content):
             'elapsed': elapsed,
             'result': b64imgDst,
         }
+        if msg is not None:
+            response['message'] = msg
         if debug:
             edge_buffer = image_to_bytes(edge_image)
             b64imgEdge = encode_image_base64(edge_buffer)
@@ -62,7 +68,7 @@ def processJson(json_content):
         return jsonify(response)
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return buildJsonErro(str(e)), 500
 
 
 @app.route('/process', methods=['POST'])

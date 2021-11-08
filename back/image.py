@@ -54,7 +54,7 @@ def image_to_bytes(img, img_format: str = 'JPEG') -> io.BytesIO:
 
 def modelPredict(net, img):
     output = detect.predict(net, np.array(img))
-    output = output.resize((img.size), resample=Image.BILINEAR)  # remove resample
+    output = output.resize((img.size), resample=Image.BILINEAR)
     output = output.convert("L")
     return output
 
@@ -137,13 +137,14 @@ def warp_image(img_src, img_edge, target):
 
 
 def process_image(net, byte_data: io.BytesIO):
+    msg = None
     img = Image.open(byte_data)
     img_mask = modelPredict(net, img)
     img_edge, target = detect_edge(img_mask)
     if target is None:
-        #raise Exception('No region found')
         img_dst = img_mask
+        msg = 'No region found'
     else:
         img_dst = warp_image(np.asarray(img), np.asarray(img_edge), target)
 
-    return img_dst, Image.fromarray(img_edge)
+    return img_dst, Image.fromarray(img_edge), msg
