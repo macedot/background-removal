@@ -34,31 +34,24 @@ def load_b64image(base64_str):
     return io.BytesIO(imgdata)
 
 
-def encode_image_base64(image_bytes: io.BytesIO) -> str:
+def encode_image_base64(PIL_image, img_mode: str = 'RGBA', img_format: str = 'PNG') -> str:
     with io.BytesIO() as output_bytes:
-        PIL_image = Image.open(image_bytes)
-        if PIL_image.mode != 'L':
-            PIL_image = PIL_image.convert('L')
-        PIL_image.save(output_bytes, 'JPEG')
+        if PIL_image.mode != img_mode:
+            PIL_image = PIL_image.convert(img_mode)
+        PIL_image.save(output_bytes, img_format)
         bytes_data = output_bytes.getvalue()
     base64_str = str(base64.b64encode(bytes_data), 'utf-8')
     return base64_str
 
 
-def image_to_bytes(img, img_format: str = 'JPEG') -> io.BytesIO:
-    buffer = io.BytesIO()
-    img.save(buffer, img_format)
-    buffer.seek(0)
-    return buffer
-
-
 def modelPredict(net, img):
     output = detect.predict(net, np.array(img))
     output = output.resize((img.size), resample=Image.BILINEAR)
+    output = output.convert("L")
     return output
 
 
-def imageCompose(img_base, img_mask, img_type: str = 'RGB'):
+def imageCompose(img_base, img_mask, img_type: str = 'RGBA'):
     empty_img = Image.new(img_type, (img_base.size), 0)
     new_img = Image.composite(img_base.convert(img_type),
                               empty_img,
@@ -148,7 +141,6 @@ def extract_cheque(net, byte_data: io.BytesIO):
     msg = None
     img = Image.open(byte_data)
     img_mask = modelPredict(net, img)
-    img_mask = img_mask.convert("L")
     img_edge, target = detect_edge(img_mask)
     if target is None:
         img_dst = img_mask

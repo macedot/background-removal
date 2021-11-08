@@ -4,7 +4,7 @@ import logging
 
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from image import load_b64image, extract_image, extract_cheque, image_to_bytes, encode_image_base64
+from image import load_b64image, extract_image, extract_cheque, encode_image_base64
 
 import detect
 
@@ -54,8 +54,7 @@ def chequeExtract():
         dst_image, edge_image, err = extract_cheque(theNet, data)
         elapsed = time.time() - start
 
-        dst_buffer = image_to_bytes(dst_image)
-        b64imgDst = encode_image_base64(dst_buffer)
+        b64imgDst = encode_image_base64(dst_image)
 
         response = {
             'elapsed': elapsed,
@@ -70,8 +69,7 @@ def chequeExtract():
             response['result'] = b64imgDst
 
         if debug:
-            edge_buffer = image_to_bytes(edge_image)
-            b64imgEdge = encode_image_base64(edge_buffer)
+            b64imgEdge = encode_image_base64(edge_image)
             response['edge'] = b64imgEdge
             response['result'] = b64imgDst
 
@@ -101,8 +99,7 @@ def imageExtract():
         dst_image = extract_image(theNet, data)
         elapsed = time.time() - start
 
-        dst_buffer = image_to_bytes(dst_image)
-        b64imgDst = encode_image_base64(dst_buffer)
+        b64imgDst = encode_image_base64(dst_image)
 
         response = {
             'elapsed': elapsed,
