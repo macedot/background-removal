@@ -63,12 +63,13 @@
         var theJson = JSON.stringify({
           uuid: theUUID,
           image: imgFile,
+          isLite: isLite,
         });
         // console.log(theJson);
 
         $('#img_dst').attr('src', '');
         $.ajax({
-          url: isLite ? '/process_lite' : '/process',
+          url: '/process',
           type: 'POST',
           data: theJson,
           cache: false,

@@ -18,20 +18,32 @@ app = Flask(__name__)
 CORS(app)
 
 u2net = detect.load_model(model_name="u2net")
-u2netp = detect.load_model(model_name="u2netp")
+u2netLite = detect.load_model(model_name="u2netp")
 
 logging.basicConfig(level=logging.INFO)
 
 
-def process_image(net, byte_data: io.BytesIO) -> io.BytesIO:
-    start = time.time()
-    img = Image.open(byte_data)
+def modelPredict(net, img):
     output = detect.predict(net, np.array(img))
     output = output.resize((img.size), resample=Image.BILINEAR)  # remove resample
-    empty_img = Image.new("RGBA", (img.size), 0)
-    new_img = Image.composite(img, empty_img, output.convert("L"))
+    output = output.convert("L")
+    return output
+
+
+def imageCompose(img_base, img_mask):
+    empty_img = Image.new("RGBA", (img_base.size), 0)
+    new_img = Image.composite(img_base, empty_img, img_mask)
+    new_img = new_img.convert('L')
+    return new_img
+
+
+def process_image(net, byte_data: io.BytesIO, img_format: str = 'JPEG') -> io.BytesIO:
+    start = time.time()
+    img = Image.open(byte_data)
+    img_mask = modelPredict(net, img)
+    new_img = imageCompose(img, img_mask)
     buffer = io.BytesIO()
-    new_img.save(buffer, "PNG")
+    new_img.save(buffer, img_format)
     buffer.seek(0)
     elapsed = time.time() - start
     return buffer, elapsed
@@ -39,22 +51,7 @@ def process_image(net, byte_data: io.BytesIO) -> io.BytesIO:
 
 @app.route("/", methods=["GET"])
 def ping():
-    return "U^2-Net!"
-
-
-@app.route("/remove", methods=["POST"])
-def remove():
-    start = time.time()
-    if 'file' not in request.files:
-        return jsonify({'error': 'missing file'}), 400
-    if request.files['file'].filename.rsplit('.', 1)[1].lower() not in ["jpg", "png", "jpeg"]:
-        return jsonify({'error': 'invalid file format'}), 400
-    data = request.files['file'].read()
-    if len(data) == 0:
-        return jsonify({'error': 'empty image'}), 400
-    buffer, elapsed = process_image(io.BytesIO(data))
-    logging.info(f" Predicted in {time.time() - start:.2f} sec")
-    return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode()}"
+    return "OK!"
 
 
 @app.route('/upload')
@@ -66,33 +63,41 @@ def load_image_base64(base64_str):
     if isinstance(base64_str, bytes):
         base64_str = base64_str.decode("utf-8")
     imgdata = base64.b64decode(base64_str)
-    return imgdata
+    return io.BytesIO(imgdata)
 
 
-def process_json(net, json_content):
+def encode_image_base64(image_bytes: io.BytesIO) -> str:
+    with io.BytesIO() as output_bytes:
+        PIL_image = Image.open(image_bytes)
+        if PIL_image.mode != 'L':
+            PIL_image = PIL_image.convert('L')
+        PIL_image.save(output_bytes, 'JPEG')
+        bytes_data = output_bytes.getvalue()
+    base64_str = str(base64.b64encode(bytes_data), 'utf-8')
+    return base64_str
+
+
+def process_json(json_content):
     if 'image' not in json_content:
         return jsonify({'error': 'missing image file'}), 400
     b64imgSrc = json_content['image']
     if len(b64imgSrc) == 0:
         return jsonify({'error': 'empty image'}), 400
+    isLite = json_content.get('isLite', False)
+    theNet = u2netLite if isLite else u2net
     data = load_image_base64(b64imgSrc)
-    buffer, elapsed = process_image(net, io.BytesIO(data))
-    b64imgDst = base64.b64encode(buffer.getvalue()).decode()
+    buffer, elapsed = process_image(theNet, data)
+    b64imgDst = encode_image_base64(buffer)
     return jsonify({
         'elapsed': elapsed,
-        'src': b64imgSrc,
         'dst': b64imgDst,
+        'isLite': isLite,
     })
 
 
 @app.route('/process', methods=['POST'])
 def processImage():
-    return process_json(u2net, request.json)
-
-
-@app.route('/process_lite', methods=['POST'])
-def processImageLite():
-    return process_json(u2netp, request.json)
+    return process_json(request.json)
 
 
 if __name__ == "__main__":
