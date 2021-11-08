@@ -13,14 +13,12 @@
   <script type="text/javascript">//<![CDATA[
     function b(a) { return a ? (a ^ Math.random() * 16 >> a / 4).toString(16) : ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, b) }
     var imgFile = null
-    var isLite = false;
 
     $('#img_src').attr('src', '');
     $('#img_dst').attr('src', '');
 
     window.onload = function () {
       $('#fileSelectorImage').change(function (event) {
-        isLite = document.getElementById("isLite").checked;
         $('#result').text("...loading...");
         $('#img_src').attr('src', '');
         $('#img_dst').attr('src', '');
@@ -39,7 +37,6 @@
           };
           reader.onloadend = function (event) {
             console.log('reader.onloadend');
-            // imgFile = event.target.result;
             var imgResult = event.target.result;
             var base64 = imgResult.replace(/^data:image\/(png|jpg|jpeg|tiff|bmp);base64,/, "");
             imgFile = base64
@@ -56,6 +53,9 @@
           return;
         }
         $('#result').text("...sending...");
+
+        var isLite = document.getElementById("isLite").checked;
+        console.log('isLite = ' + isLite);
 
         var theUUID = b();
         var theJson = JSON.stringify({
