@@ -46,12 +46,13 @@ def chequeExtract():
 
         debug = json_content.get('debug', False)
         useLite = json_content.get('useLite', False)
+        doUnsharp = json_content.get('doUnsharp', False)
         theNet = u2netLite if useLite else u2net
 
         data = load_b64image(b64imgSrc)
 
         start = time.time()
-        dst_image, edge_image, err = extract_cheque(theNet, data)
+        dst_image, edge_image, err = extract_cheque(theNet, data, doUnsharp)
         elapsed = time.time() - start
 
         b64imgDst = encode_image_base64(dst_image)
@@ -91,12 +92,13 @@ def imageExtract():
             return buildJsonErro('input image is empty'), 400
 
         useLite = json_content.get('useLite', False)
+        doUnsharp = json_content.get('doUnsharp', False)
         theNet = u2netLite if useLite else u2net
 
         data = load_b64image(b64imgSrc)
 
         start = time.time()
-        dst_image = extract_image(theNet, data)
+        dst_image = extract_image(theNet, data, doUnsharp)
         elapsed = time.time() - start
 
         b64imgDst = encode_image_base64(dst_image)

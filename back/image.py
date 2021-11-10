@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import cv2 as cv2
 from PIL import Image
+from PIL.ImageFilter import (UnsharpMask)
 from transform import rectify, four_point_transform
 
 import detect
@@ -44,7 +45,12 @@ def encode_image_base64(PIL_image, img_mode: str = 'RGBA', img_format: str = 'PN
     return base64_str
 
 
-def modelPredict(net, img):
+def modelPredict(net, img, doUnsharp: bool = False):
+    if doUnsharp:
+        #img = img.filter(UnsharpMask(radius=4.5, percent=200, threshold=0))
+        #img = img.filter(UnsharpMask(radius=3, percent=200, threshold=5))
+        #img = img.filter(UnsharpMask(radius=1.5, percent=75, threshold=10))
+        img = img.filter(UnsharpMask())
     output = detect.predict(net, np.array(img))
     output = output.resize((img.size), resample=Image.BILINEAR)
     output = output.convert("L")
@@ -53,9 +59,7 @@ def modelPredict(net, img):
 
 def imageCompose(img_base, img_mask, img_type: str = 'RGBA'):
     empty_img = Image.new(img_type, (img_base.size), 0)
-    new_img = Image.composite(img_base.convert(img_type),
-                              empty_img,
-                              img_mask)
+    new_img = Image.composite(img_base.convert(img_type), empty_img, img_mask)
     return new_img
 
 
@@ -69,7 +73,8 @@ def auto_canny(image, sigma=0.33, apertureSize=7):
 
 def detect_edge(img):
     im_np = np.asarray(img)
-    _, threshold = cv2.threshold(im_np, 1, 255, cv2.THRESH_BINARY)
+    #_, threshold = cv2.threshold(im_np, 1, 255, cv2.THRESH_BINARY)
+    _, threshold = cv2.threshold(im_np, 1, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     threshold = auto_canny(threshold)
     contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
@@ -130,17 +135,17 @@ def warp_image(img_src, img_edge, target):
     return Image.fromarray(img_dst)
 
 
-def extract_image(net, byte_data: io.BytesIO):
+def extract_image(net, byte_data: io.BytesIO, doUnsharp: bool = False):
     img = Image.open(byte_data)
-    img_mask = modelPredict(net, img)
+    img_mask = modelPredict(net, img, doUnsharp)
     img_final = imageCompose(img, img_mask)
     return img_final
 
 
-def extract_cheque(net, byte_data: io.BytesIO):
+def extract_cheque(net, byte_data: io.BytesIO, doUnsharp: bool = False):
     msg = None
     img = Image.open(byte_data)
-    img_mask = modelPredict(net, img)
+    img_mask = modelPredict(net, img, doUnsharp)
     img_edge, target = detect_edge(img_mask)
     if target is None:
         img_dst = img_mask

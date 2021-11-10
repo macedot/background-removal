@@ -63,6 +63,9 @@
         var useLite = document.getElementById("useLite").checked;
         console.log('useLite = ' + useLite);
 
+        var doUnsharp = document.getElementById("doUnsharp").checked;
+        console.log('doUnsharp = ' + doUnsharp);
+
         var isDebug = document.getElementById("isDebug").checked;
         console.log('isDebug = ' + isDebug);
 
@@ -71,7 +74,8 @@
           uuid: theUUID,
           image: imgFile,
           useLite: useLite,
-          debug: isDebug
+          doUnsharp: doUnsharp,
+          debug: isDebug,
         });
 
 
@@ -109,6 +113,7 @@
   <input type="file" name="fileSelectorImage" id="fileSelectorImage" label="Image File" /><br />
   <input type="checkbox" id="isCheque" checked /> CHEQUE? <br />
   <input type="checkbox" id="useLite" /> LITE? <br />
+  <input type="checkbox" id="doUnsharp" /> UNSHARP? <br />
   <input type="checkbox" id="isDebug" /> DEBUG? <br />
   <input type="button" id="sendFile" value="Send!" />
   <hr />
